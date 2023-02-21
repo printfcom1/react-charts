@@ -1,7 +1,8 @@
-import React from 'react';
+import React  from 'react';
 import './App.css';
 import ReactFC from "react-fusioncharts";
-
+import moment from 'moment';
+//var request = require('request');
 // Include the fusioncharts library
 import FusionCharts from "fusioncharts";
 
@@ -19,64 +20,33 @@ class App extends React.Component {
   constructor(props) {
     super(props);
 
-    this.state = {
-      chartData: [
-        {
-          label: "Group 1",
-          value: "10"
-        },
-        {
-          label: "Group 2",
-          value: "20"
-        },
-        {
-          label: "Group 3",
-          value: "30"
-        },
-        {
-          label: "Group 4",
-          value: "40"
-        },
-        {
-          label: "Group 5",
-          value: "50"
-        },
-        {
-          label: "Group 6",
-          value: "60"
-        },
-        {
-          label: "Group 7",
-          value: "70"
-        },
-        {
-          label: "Group 8",
-          value: "80"
-        },
-        {
-          label: "Group 9",
-          value: "90"
-        },
-        {
-          label: "Group 10",
-          value: "100"
-        }
-      ]
-    };
+    this.state = {};
+  }
+  
+  async fetchData() {
+    const dateNow = this.state.dateNow
+    console.log(dateNow)
+    const i = this.state.i;
+    const data = this.state.data
+    const filteredData = data.filter(entry => entry.date === dateNow);
+    //console.log(data)
+    const newData = filteredData.map(group => {
+      return { label: group.state, value: group.cases };
+    });
+    newData.sort((a, b) => b.value - a.value);
+    const nextI = i >= 30 ? 1 : i + 1;
+    const yesterday = moment().subtract(i, 'days').format('YYYY-MM-DD');
+    this.setState({ chartData: newData, i: nextI,dateNow : yesterday });
   }
 
-  componentDidMount() {
+  async componentDidMount() {
     // Set interval to update chart data every 1 second
+    const dateNow = moment().format('YYYY-MM-DD');
+    const data = await getDataFromAPI(30);
+    this.setState({ i: 1 ,data:data,dateNow:dateNow});
     this.interval = setInterval(() => {
-      // Generate new chart data
-      const newData = this.state.chartData.map(group => {
-        return { label: group.label, value: Math.floor(Math.random() * 100) };
-      });
-
-      newData.sort((a, b) => b.value - a.value);
-      // Update state with new chart data
-      this.setState({ chartData: newData });
-    }, 1000);
+      this.fetchData();
+    }, 2000);
   }
 
   componentWillUnmount() {
@@ -84,26 +54,39 @@ class App extends React.Component {
     clearInterval(this.interval);
   }
 
-  render() {
-    const chartConfigs = {
-      type: "bar2d",
-      width: "1500",
-      height: "800",
-      dataFormat: "json",
-      dataSource: {
-        chart: {
-          caption: "Groups",
-          xAxisName: "Group",
-          yAxisName: "Value",
-          theme: "fusion",
-          //inverseYAxis: true, 
-        },
-        data: this.state.chartData,
-      }
-    };
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.chartData !== this.state.chartData) {
+      const chartConfigs = {
+        type: "bar2d",
+        width: "1800",
+        height: "1400",
+        dataFormat: "json",
+        dataSource: {
+          chart: {
+            caption: "Groups",
+            xAxisName: "Group",
+            yAxisName: "Value",
+            //theme: "fusion",
+          },
+          data: this.state.chartData,
+        }
+      };
+      this.setState({ chartConfigs: chartConfigs });
+    }
+  }
 
-    return <ReactFC {...chartConfigs} />;
+  render() {
+    return <ReactFC {...this.state.chartConfigs} />;
   }
 }
 
+
 export default App;
+
+
+
+async function getDataFromAPI(day) {
+  const response = await fetch(`https://disease.sh/v3/covid-19/nyt/states?lastdays=${day}`);
+  const data = await response.json();
+  return data;
+}
